@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A Special Surprise for You</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap');
+        
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #fafafa; color: #0f172a; overflow-x: hidden; }
+
+        .bg-celebration { position: fixed; inset: 0; pointer-events: none; z-index: -1; }
+        .balloon {
+            position: absolute; bottom: -100px; width: 40px; height: 55px;
+            border-radius: 50% 50% 50% 50% / 40% 40% 60% 60%;
+            animation: floatUp var(--speed) linear infinite; opacity: 0.25;
+        }
+        @keyframes floatUp {
+            0% { transform: translateY(0) rotate(0deg); left: var(--x-pos); }
+            100% { transform: translateY(-120vh) rotate(10deg); left: var(--x-pos); }
+        }
+
+        /* --- FIXED TRUCK: Natural Direction --- */
+        .road { position: relative; width: 100%; height: 12px; background: #e2e8f0; border-radius: 50px; margin-top: 40px; }
+        #truck-container { 
+            position: absolute; 
+            top: -45px; 
+            left: 0; 
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            will-change: transform;
+            transform: translateX(0); /* Removed scaleX flip to fix orientation */
+            z-index: 50;
+        }
+
+        /* Exhaust Smoke Effect */
+        .smoke {
+            position: absolute; left: -10px; bottom: 15px;
+            width: 8px; height: 8px; background: #cbd5e1; border-radius: 50%;
+            animation: smoke 0.5s infinite; opacity: 0;
+        }
+        @keyframes smoke {
+            0% { transform: scale(1) translateX(0); opacity: 0.6; }
+            100% { transform: scale(3) translateX(-20px); opacity: 0; }
+        }
+        
+        .glass { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(20px); border: 1px solid white; box-shadow: 0 20px 40px rgba(0,0,0,0.05); }
+        .stat-huge { font-size: clamp(5rem, 15vw, 8.5rem); font-weight: 800; line-height: 0.8; letter-spacing: -0.05em; }
+        .reveal-up { opacity: 0; animation: revealUp 1s cubic-bezier(0.19, 1, 0.22, 1) forwards; }
+        @keyframes revealUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .image-frame { border-radius: 3rem; border: 10px solid white; box-shadow: 0 30px 60px rgba(0,0,0,0.1); transform: rotate(-2deg); }
+
+        #copy-toast {
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px);
+            background: #0f172a; color: white; padding: 12px 28px; border-radius: 50px;
+            font-weight: 600; font-size: 14px; transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 1000;
+        }
+        #copy-toast.show { transform: translateX(-50%) translateY(0); }
+    </style>
+</head>
+<body>
+
+    <div class="bg-celebration" id="bg-layer"></div>
+    <audio id="bday-music" loop><source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg"></audio>
+    <div id="copy-toast">Link copied! Share the magic 💌</div>
+
+    <div id="entry-screen" class="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-white">
+        <div class="mb-10 text-6xl animate-bounce">🎁</div>
+        <h2 class="text-3xl font-black text-slate-900 mb-2 text-center px-6">A Birthday Surprise!</h2>
+        <p class="text-slate-400 font-medium mb-10 text-center">Tap the button to start the journey.</p>
+        <button onclick="startCelebration()" class="px-16 py-6 bg-indigo-600 text-white rounded-full font-bold shadow-xl hover:bg-indigo-700 transition-all active:scale-95">
+            Open Your Gift
+        </button>
+    </div>
+
+    <div id="loader-screen" class="fixed inset-0 z-[90] hidden flex flex-col items-center justify-center bg-[#fafafa] px-8">
+        <div class="w-full max-w-xl text-center">
+            <div class="flex justify-between items-end mb-6">
+                <span class="text-5xl font-black text-slate-200">21</span>
+                <div class="mb-2">
+                    <p id="loader-percent" class="text-5xl font-black text-indigo-600">0%</p>
+                </div>
+                <span class="text-5xl font-black text-slate-200">22</span>
+            </div>
+            <p id="status-update" class="text-sm font-bold text-slate-400 mb-8">Blowing up the balloons...</p>
+            <div class="road">
+                <div id="truck-container">
+                    <div class="smoke"></div>
+                    <i class="fas fa-truck text-5xl text-indigo-600"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <main id="main-content" class="relative z-10 opacity-0 hidden flex flex-col items-center pt-24 pb-40 px-6 max-w-6xl mx-auto">
+        
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center mb-32 reveal-up">
+            <div class="lg:col-span-6 order-2 lg:order-1 text-center lg:text-left">
+                <div class="inline-block px-4 py-2 mb-6 bg-pink-50 rounded-full text-[12px] font-bold text-pink-600 uppercase tracking-widest">
+                    Happy 22nd Birthday! 🎉
+                </div>
+                <h1 class="text-7xl md:text-8xl font-black tracking-tight mb-8 leading-[0.9] text-slate-900">It's Your <br><span class="text-indigo-600">Big Day.</span></h1>
+                <p class="text-slate-500 text-xl leading-relaxed">22 years of incredible memories. Today we celebrate you and the wonderful person you've become!</p>
+            </div>
+            <div class="lg:col-span-6 order-1 lg:order-2">
+                <div class="image-frame overflow-hidden w-full max-w-md mx-auto">
+                    <img src="https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&q=80&w=800" class="w-full h-[500px] object-cover">
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-10 w-full mb-24 reveal-up">
+            <div class="glass p-16 rounded-[4rem] text-center">
+                <p class="stat-huge text-indigo-600">100<span class="text-4xl text-indigo-300">%</span></p>
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-[0.4em] mt-8">Joy & Laughter</p>
+            </div>
+            <div class="glass p-16 rounded-[4rem] text-center">
+                <p class="stat-huge text-pink-500">22</p>
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-[0.4em] mt-8">Amazing Years</p>
+            </div>
+        </div>
+
+        <div class="w-full glass p-12 md:p-24 rounded-[5rem] reveal-up mb-24">
+            <h2 class="text-4xl font-black mb-16 text-center tracking-tight text-slate-900">Wishes For You</h2>
+            <div class="grid grid-cols-1 gap-6 max-w-2xl mx-auto">
+                <div class="flex items-center gap-6 p-8 bg-white/60 rounded-[2.5rem] shadow-sm hover:shadow-md transition-all">
+                    <div class="text-3xl">✨</div>
+                    <span class="font-bold text-xl text-slate-700">May your year be filled with magic.</span>
+                </div>
+                <div class="flex items-center gap-6 p-8 bg-white/60 rounded-[2.5rem] shadow-sm hover:shadow-md transition-all">
+                    <div class="text-3xl">🌈</div>
+                    <span class="font-bold text-xl text-slate-700">Chase every dream with courage.</span>
+                </div>
+                <div class="flex items-center gap-6 p-8 bg-white/60 rounded-[2.5rem] shadow-sm hover:shadow-md transition-all">
+                    <div class="text-3xl">🎂</div>
+                    <span class="font-bold text-xl text-slate-700">Always keep that beautiful smile.</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex flex-col items-center gap-10 reveal-up">
+            <div class="flex flex-wrap justify-center gap-4">
+                <button onclick="copyLink()" class="px-12 py-6 bg-slate-900 text-white rounded-full font-bold shadow-xl hover:bg-slate-800 transition-all flex items-center gap-4 text-xs tracking-[0.2em]">
+                    <i class="fas fa-link"></i> COPY LINK
+                </button>
+                <a href="javascript:share('whatsapp')" class="w-20 h-20 bg-white border border-slate-100 shadow-xl rounded-full flex items-center justify-center text-[#25D366] text-3xl hover:scale-110 transition-transform">
+                    <i class="fab fa-whatsapp"></i>
+                </a>
+            </div>
+            <button onclick="shootMegaConfetti()" class="text-indigo-600 font-bold uppercase text-[11px] tracking-[0.5em]">
+                <i class="fas fa-sparkles mr-2"></i> Click for more confetti!
+            </button>
+        </div>
+    </main>
+
+    <script>
+        const statusUpdates = ["Finding the perfect gift...", "Blowing up balloons...", "Getting the cake ready...", "Almost there!"];
+
+        function startCelebration() {
+            document.getElementById('bday-music').play().catch(() => {});
+            document.getElementById('entry-screen').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('entry-screen').style.display = 'none';
+                document.getElementById('loader-screen').style.display = 'flex';
+                runUpgrade();
+            }, 600);
+        }
+
+        function runUpgrade() {
+            let progress = 0;
+            const truck = document.getElementById('truck-container');
+            const percentLabel = document.getElementById('loader-percent');
+            const statusLabel = document.getElementById('status-update');
+            const roadWidth = document.querySelector('.road').offsetWidth - 60;
+
+            function step() {
+                progress += 0.45;
+                if (progress > 100) progress = 100;
+
+                const xPos = (progress / 100) * roadWidth;
+                truck.style.transform = `translateX(${xPos}px)`;
+                
+                percentLabel.innerText = Math.floor(progress) + '%';
+                const statusIndex = Math.min(Math.floor((progress/100) * statusUpdates.length), statusUpdates.length - 1);
+                statusLabel.innerText = statusUpdates[statusIndex];
+
+                if (progress < 100) { requestAnimationFrame(step); } 
+                else { finishUpgrade(); }
+            }
+            requestAnimationFrame(step);
+        }
+
+        function finishUpgrade() {
+            shootMegaConfetti();
+            setTimeout(() => {
+                document.getElementById('loader-screen').style.opacity = '0';
+                setTimeout(() => {
+                    document.getElementById('loader-screen').style.display = 'none';
+                    const main = document.getElementById('main-content');
+                    main.style.display = 'flex';
+                    setTimeout(() => main.style.opacity = '1', 50);
+                }, 500);
+            }, 800);
+        }
+
+        function copyLink() {
+            navigator.clipboard.writeText(window.location.href).then(() => {
+                const toast = document.getElementById('copy-toast');
+                toast.classList.add('show');
+                setTimeout(() => toast.classList.remove('show'), 3000);
+            });
+        }
+
+        function share(platform) {
+            const url = encodeURIComponent(window.location.href);
+            const text = encodeURIComponent("I've got a surprise for you! Check it out: ");
+            window.open(`https://api.whatsapp.com/send?text=${text}${url}`, '_blank');
+        }
+
+        function shootMegaConfetti() {
+            confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 }, colors: ['#6366f1', '#f472b6', '#fbbf24'] });
+        }
+
+        setInterval(() => {
+            const b = document.createElement('div');
+            b.className = 'balloon';
+            b.style.setProperty('--x-pos', Math.random() * 100 + 'vw');
+            b.style.setProperty('--speed', (Math.random() * 7 + 10) + 's');
+            b.style.backgroundColor = ['#818cf8', '#f472b6', '#fbbf24', '#a78bfa'][Math.floor(Math.random()*4)];
+            document.getElementById('bg-layer').appendChild(b);
+            setTimeout(() => b.remove(), 12000);
+        }, 2000);
+    </script>
+</body>
+</html>
