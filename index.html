@@ -8,10 +8,11 @@
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&family=Dancing+Script:wght@700&display=swap');
         
         body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #fafafa; color: #0f172a; overflow-x: hidden; }
 
+        /* Balloon Animation */
         .bg-celebration { position: fixed; inset: 0; pointer-events: none; z-index: -1; }
         .balloon {
             position: absolute; bottom: -100px; width: 30px; height: 45px;
@@ -23,6 +24,7 @@
             100% { transform: translateY(-120vh) rotate(10deg); left: var(--x-pos); }
         }
 
+        /* Truck Loader */
         .road { position: relative; width: 100%; height: 10px; background: #e2e8f0; border-radius: 50px; margin-top: 40px; }
         #truck-container { 
             position: absolute; top: -35px; left: 0; width: 50px; height: 50px;
@@ -54,7 +56,6 @@
             box-shadow: 0 4px 10px rgba(0,0,0,0.1); letter-spacing: 0.1em;
         }
 
-        /* Music Toggle Button Styling */
         #music-toggle {
             position: fixed; top: 20px; right: 20px; z-index: 200;
             width: 45px; height: 45px; border-radius: 50%;
@@ -62,7 +63,6 @@
             background: white; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
             cursor: pointer; transition: all 0.3s ease;
         }
-        #music-toggle:active { scale: 0.9; }
 
         #copy-toast {
             position: fixed; bottom: 30px; left: 50%; 
@@ -73,6 +73,13 @@
             z-index: 1000; opacity: 0; pointer-events: none;
         }
         #copy-toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+        /* Modal styling */
+        #message-modal { transition: opacity 0.4s ease; }
+        .modal-content { transform: scale(0.9); transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        #message-modal.active { display: flex !important; opacity: 1; }
+        #message-modal.active .modal-content { transform: scale(1); }
+        .signature { font-family: 'Dancing Script', cursive; }
     </style>
 </head>
 <body>
@@ -80,7 +87,6 @@
     <div class="bg-celebration" id="bg-layer"></div>
     
     <audio id="bday-music" loop>
-        <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg">
         <source src="https://assets.mixkit.co/music/preview/mixkit-beautiful-dream-493.mp3" type="audio/mpeg">
     </audio>
 
@@ -89,6 +95,31 @@
     </div>
 
     <div id="copy-toast">Link copied! Share the joy 💌</div>
+
+    <div id="message-modal" class="fixed inset-0 z-[150] hidden flex items-center justify-center p-6 bg-slate-900/60 opacity-0 pointer-events-none">
+        <div class="modal-content bg-white p-8 md:p-12 rounded-[2.5rem] max-w-lg w-full relative shadow-2xl pointer-events-auto border-4 border-indigo-50">
+            <button onclick="toggleModal()" class="absolute top-6 right-6 text-slate-300 hover:text-slate-600 transition-colors">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+            <div class="w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center mb-6">
+                <span class="text-3xl">💌</span>
+            </div>
+            <h3 class="text-2xl font-black text-slate-900 mb-4">Hey you!</h3>
+            <p class="text-slate-600 leading-relaxed text-lg mb-8">
+                Just wanted to drop a quick note to say Happy 22nd! Watching you crush it this past year has been amazing. You're easily one of my favorite people to be around, and I'm so glad we're friends. <br><br>
+                I hope your day is filled with way too much cake, great music, and everything else you love. You deserve the absolute best!
+            </p>
+            <div class="pt-6 border-t border-slate-100 flex justify-between items-end">
+                <div>
+                    <div class="signature text-2xl text-indigo-600 mb-1">Catch you soon,</div>
+                    <div class="signature text-3xl text-slate-900 font-bold">Your Name</div>
+                </div>
+                <button onclick="shootMegaConfetti()" class="w-12 h-12 bg-indigo-600 text-white rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-transform">
+                    <i class="fas fa-sparkles"></i>
+                </button>
+            </div>
+        </div>
+    </div>
 
     <div id="entry-screen" class="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-white px-6">
         <div class="mb-6 text-5xl animate-bounce">🎁</div>
@@ -108,10 +139,7 @@
             </div>
             <p id="status-update" class="text-xs font-bold text-slate-400 mb-8 uppercase tracking-widest">Blowing up balloons...</p>
             <div class="road">
-                <div id="truck-container">
-                    <div class="smoke"></div>
-                    <i class="fas fa-truck text-4xl text-indigo-600"></i>
-                </div>
+                <div id="truck-container"><div class="smoke"></div><i class="fas fa-truck text-4xl text-indigo-600"></i></div>
             </div>
         </div>
     </div>
@@ -121,23 +149,22 @@
         <div class="flex flex-col lg:flex-row items-center gap-10 mb-20 reveal-up active w-full">
             <div class="w-full lg:w-1/2 order-2 lg:order-1 text-center lg:text-left">
                 <div class="flex flex-wrap justify-center lg:justify-start gap-2 mb-4">
-                    <div class="px-3 py-1 bg-pink-50 rounded-full text-[10px] font-bold text-pink-600 uppercase tracking-widest">
-                        Happy 22nd Birthday! 🎉
-                    </div>
-                    <div class="px-3 py-1 bg-indigo-50 rounded-full text-[10px] font-bold text-indigo-600 uppercase tracking-widest border border-indigo-100">
-                        <i class="far fa-calendar-alt mr-1"></i> 14th Jan 2026
-                    </div>
+                    <div class="px-3 py-1 bg-pink-50 rounded-full text-[10px] font-bold text-pink-600 uppercase tracking-widest">Happy 22nd Birthday! 🎉</div>
+                    <div class="px-3 py-1 bg-indigo-50 rounded-full text-[10px] font-bold text-indigo-600 uppercase tracking-widest border border-indigo-100">14th Jan 2026</div>
                 </div>
                 <h1 class="text-5xl md:text-7xl font-black tracking-tight mb-6 leading-tight text-slate-900">It's Your <br><span class="text-indigo-600">Big Day.</span></h1>
-                <p class="text-slate-500 text-base md:text-lg leading-relaxed max-w-md mx-auto lg:mx-0">
-                    Happy 22nd Birthday! I hope your day is as awesome as you are and that this new year brings you nothing but the best. Cheers to you!
+                <p class="text-slate-500 text-base md:text-lg leading-relaxed max-w-md mx-auto lg:mx-0 mb-8">
+                    Another amazing year unlocked! I hope today is as special as you are.
                 </p>
+                <button onclick="toggleModal()" class="px-8 py-4 bg-slate-900 text-white rounded-full font-bold text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all">
+                    Read Personal Note ✉️
+                </button>
             </div>
             
             <div class="w-full lg:w-1/2 order-1 lg:order-2">
                 <div class="relative image-frame max-w-[320px] md:max-w-md mx-auto">
                     <div class="ribbon-tag uppercase">CHAPTER 22</div>
-                    <img src="https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&q=80&w=800" class="w-full aspect-[4/5] object-cover rounded-[1.5rem]">
+                    <img src="birthday-photo.jpg" class="w-full aspect-[4/5] object-cover rounded-[1.5rem]">
                 </div>
             </div>
         </div>
@@ -155,16 +182,10 @@
 
         <div class="w-full glass p-8 md:p-16 rounded-[3rem] mb-16 reveal-up active">
             <h2 class="text-2xl md:text-3xl font-black mb-10 text-center tracking-tight">Wishes For You</h2>
-            <div class="space-y-4 max-w-lg mx-auto text-sm md:text-base">
-                <div class="flex items-center gap-4 p-5 bg-white/60 rounded-2xl shadow-sm">
-                    <span class="text-2xl">✨</span> <span class="font-bold text-slate-700">A year filled with magic.</span>
-                </div>
-                <div class="flex items-center gap-4 p-5 bg-white/60 rounded-2xl shadow-sm">
-                    <span class="text-2xl">🌈</span> <span class="font-bold text-slate-700">Chase every dream.</span>
-                </div>
-                <div class="flex items-center gap-4 p-5 bg-white/60 rounded-2xl shadow-sm">
-                    <span class="text-2xl">🎂</span> <span class="font-bold text-slate-700">Keep smiling always.</span>
-                </div>
+            <div class="space-y-4 max-w-lg mx-auto">
+                <div class="flex items-center gap-4 p-5 bg-white/60 rounded-2xl shadow-sm"><span class="text-2xl">✨</span> <span class="font-bold text-slate-700">A year filled with magic.</span></div>
+                <div class="flex items-center gap-4 p-5 bg-white/60 rounded-2xl shadow-sm"><span class="text-2xl">🌈</span> <span class="font-bold text-slate-700">Chase every dream.</span></div>
+                <div class="flex items-center gap-4 p-5 bg-white/60 rounded-2xl shadow-sm"><span class="text-2xl">🎂</span> <span class="font-bold text-slate-700">Keep smiling always.</span></div>
             </div>
         </div>
 
@@ -177,9 +198,6 @@
                     <i class="fab fa-whatsapp"></i>
                 </a>
             </div>
-            <button onclick="shootMegaConfetti()" class="text-indigo-600 font-bold uppercase text-[10px] tracking-[0.4em]">
-                Click for Confetti!
-            </button>
         </div>
 
         <footer class="mt-20 pt-8 border-t border-slate-100 w-full text-center">
@@ -194,10 +212,7 @@
         function startCelebration() {
             const audio = document.getElementById('bday-music');
             audio.play().catch(e => console.log("Audio play failed:", e));
-            
-            // Show music toggle
             document.getElementById('music-toggle').classList.remove('hidden');
-            
             document.getElementById('entry-screen').style.opacity = '0';
             setTimeout(() => {
                 document.getElementById('entry-screen').style.display = 'none';
@@ -209,15 +224,18 @@
         function toggleMusic() {
             const audio = document.getElementById('bday-music');
             const icon = document.getElementById('music-icon');
-            if (audio.paused) {
-                audio.play();
-                icon.classList.replace('fa-volume-mute', 'fa-music');
-                icon.classList.add('text-indigo-600');
+            if (audio.paused) { audio.play(); icon.classList.replace('fa-volume-mute', 'fa-music'); } 
+            else { audio.pause(); icon.classList.replace('fa-music', 'fa-volume-mute'); }
+        }
+
+        function toggleModal() {
+            const modal = document.getElementById('message-modal');
+            if(modal.classList.contains('hidden')) {
+                modal.classList.remove('hidden');
+                setTimeout(() => modal.classList.add('active'), 10);
             } else {
-                audio.pause();
-                icon.classList.replace('fa-music', 'fa-volume-mute');
-                icon.classList.remove('text-indigo-600');
-                icon.classList.add('text-slate-400');
+                modal.classList.remove('active');
+                setTimeout(() => modal.classList.add('hidden'), 400);
             }
         }
 
@@ -225,19 +243,14 @@
             let progress = 0;
             const truck = document.getElementById('truck-container');
             const percentLabel = document.getElementById('loader-percent');
-            const statusLabel = document.getElementById('status-update');
             const roadWidth = document.querySelector('.road').offsetWidth - 50;
-
             function step() {
                 progress += 0.5;
                 if (progress > 100) progress = 100;
-                const xPos = (progress / 100) * roadWidth;
-                truck.style.transform = `translateX(${xPos}px)`;
+                truck.style.transform = `translateX(${(progress / 100) * roadWidth}px)`;
                 percentLabel.innerText = Math.floor(progress) + '%';
-                const statusIndex = Math.min(Math.floor((progress/100) * statusUpdates.length), statusUpdates.length - 1);
-                statusLabel.innerText = statusUpdates[statusIndex];
-                if (progress < 100) { requestAnimationFrame(step); } 
-                else { finishUpgrade(); }
+                if (progress < 100) requestAnimationFrame(step);
+                else finishUpgrade();
             }
             requestAnimationFrame(step);
         }
@@ -245,13 +258,10 @@
         function finishUpgrade() {
             shootMegaConfetti();
             setTimeout(() => {
-                document.getElementById('loader-screen').style.opacity = '0';
-                setTimeout(() => {
-                    document.getElementById('loader-screen').style.display = 'none';
-                    const main = document.getElementById('main-content');
-                    main.style.display = 'flex';
-                    setTimeout(() => main.style.opacity = '1', 50);
-                }, 500);
+                document.getElementById('loader-screen').style.display = 'none';
+                const main = document.getElementById('main-content');
+                main.style.display = 'flex';
+                setTimeout(() => main.style.opacity = '1', 50);
             }, 800);
         }
 
@@ -265,8 +275,7 @@
 
         function share(platform) {
             const url = encodeURIComponent(window.location.href);
-            const text = encodeURIComponent("I've got a surprise for you! Check it out: ");
-            window.open(`https://api.whatsapp.com/send?text=${text}${url}`, '_blank');
+            window.open(`https://api.whatsapp.com/send?text=Surprise! ${url}`, '_blank');
         }
 
         function shootMegaConfetti() {
@@ -277,10 +286,10 @@
             const b = document.createElement('div');
             b.className = 'balloon';
             b.style.setProperty('--x-pos', Math.random() * 100 + 'vw');
-            b.style.setProperty('--speed', (Math.random() * 7 + 10) + 's');
-            b.style.backgroundColor = ['#818cf8', '#f472b6', '#fbbf24', '#a78bfa'][Math.floor(Math.random()*4)];
+            b.style.setProperty('--speed', (Math.random() * 5 + 8) + 's');
+            b.style.backgroundColor = ['#818cf8', '#f472b6', '#fbbf24'][Math.floor(Math.random()*3)];
             document.getElementById('bg-layer').appendChild(b);
-            setTimeout(() => b.remove(), 12000);
+            setTimeout(() => b.remove(), 10000);
         }, 2000);
     </script>
 </body>
